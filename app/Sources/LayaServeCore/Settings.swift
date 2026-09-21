@@ -70,9 +70,17 @@ public struct Settings: Codable, Equatable, Sendable {
     }
 
     /// The base URL that the user puts into the n8n credential.
+    ///
+    /// A bind to every interface shows the Bonjour name of the Mac, because `0.0.0.0` is
+    /// not an address that another machine can reach.
     public var baseURL: String {
-        let displayHost = host == "0.0.0.0" ? (Host.current().localizedName ?? "127.0.0.1") : host
-        return "http://\(displayHost):\(port)/v1"
+        return "http://\(Settings.displayHost(for: host)):\(port)/v1"
+    }
+
+    static func displayHost(for host: String) -> String {
+        guard host == "0.0.0.0" || host == "::" else { return host }
+        let name = ProcessInfo.processInfo.hostName
+        return name.isEmpty ? "127.0.0.1" : name
     }
 
     public var localBaseURL: URL {

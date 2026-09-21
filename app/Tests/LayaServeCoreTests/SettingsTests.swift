@@ -123,3 +123,16 @@ final class SettingsTests: XCTestCase {
         }
     }
 }
+
+extension SettingsTests {
+    func testTheBaseURLShowsAReachableHost() {
+        var settings = Settings()
+        settings.port = 5292
+        XCTAssertEqual(settings.baseURL, "http://127.0.0.1:5292/v1")
+
+        settings.host = "0.0.0.0"
+        let url = settings.baseURL
+        XCTAssertFalse(url.contains("0.0.0.0"), "A bind to every interface needs a real name.")
+        XCTAssertTrue(url.hasSuffix(":5292/v1"))
+    }
+}

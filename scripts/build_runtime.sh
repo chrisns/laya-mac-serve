@@ -45,8 +45,10 @@ PYTHON_BIN="$RUNTIME_DIR/python/bin/python3"
 test -x "$PYTHON_BIN"
 
 echo "==> Installing the dependencies"
-"$PYTHON_BIN" -m pip install --quiet --upgrade pip
-"$PYTHON_BIN" -m pip install --no-cache-dir -r "$REPO_ROOT/server/requirements-runtime.txt"
+# The standalone build already ships a recent pip. Do not upgrade it, because that is
+# one more network round trip for no gain.
+"$PYTHON_BIN" -m pip install --no-input --disable-pip-version-check --no-cache-dir \
+	--progress-bar off -r "$REPO_ROOT/server/requirements-runtime.txt"
 
 echo "==> Removing files that the application does not need"
 SITE_PACKAGES="$("$PYTHON_BIN" -c 'import site; print(site.getsitepackages()[0])')"

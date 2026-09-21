@@ -15,9 +15,9 @@ jobs:
     name: Python tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -51,7 +51,7 @@ jobs:
     name: Swift tests
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Build
         run: swift build --package-path app
@@ -64,7 +64,7 @@ jobs:
     runs-on: macos-15
     needs: [python, swift]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Cache the Python runtime download
         uses: actions/cache@v4
@@ -88,7 +88,7 @@ jobs:
         run: |
           /usr/libexec/PlistBuddy -c 'Print :LSUIElement' build/LayaServe.app/Contents/Info.plist | grep -q true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: LayaServe-arm64
           path: build/dist/*.dmg

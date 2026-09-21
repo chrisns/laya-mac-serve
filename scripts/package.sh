@@ -21,8 +21,21 @@ rm -rf "$STAGING"
 mkdir -p "$STAGING"
 cp -R "$APP" "$STAGING/"
 ln -s /Applications "$STAGING/Applications"
-hdiutil create -quiet -volname "Laya Serve" -srcfolder "$STAGING" -ov -format UDZO \
-	"$DIST_DIR/LayaServe-$VERSION-arm64.dmg"
+DMG="$DIST_DIR/LayaServe-$VERSION-arm64.dmg"
+
+# hdiutil fails now and then on a busy build machine. Try again before giving up.
+for attempt in 1 2 3; do
+	if hdiutil create -volname "Laya Serve" -srcfolder "$STAGING" -ov -format UDZO "$DMG"; then
+		break
+	fi
+	if [[ $attempt -eq 3 ]]; then
+		echo "hdiutil failed three times." >&2
+		exit 1
+	fi
+	echo "    hdiutil attempt $attempt failed. Trying again."
+	hdiutil detach /Volumes/"Laya Serve" -force 2> /dev/null || true
+	sleep 5
+done
 rm -rf "$STAGING"
 
 echo "==> Wrote:"
