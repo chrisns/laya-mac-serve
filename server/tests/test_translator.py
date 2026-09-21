@@ -67,7 +67,9 @@ def test_multi_label_builds_one_noul_question_per_category():
     questions = translator.build_questions(req)
     assert list(questions) == ["cat_0", "cat_1", "cat_2"]
     assert all(q["type"] == "noul" for q in questions.values())
-    assert "Billing" in questions["cat_0"]["instructions"]
+    assert questions["cat_0"]["instructions"] == (
+        "Does this message concern Billing, meaning invoices, payments and refunds?"
+    )
 
 
 def test_renders_a_single_label_answer():

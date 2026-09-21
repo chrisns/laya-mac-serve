@@ -42,8 +42,27 @@ jobs:
       - name: Classify with the real bundled model and no network access
         run: ./scripts/offline_test.sh
 
+      - name: Check that the tag matches the application version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          PLIST_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+            app/Resources/Info.plist)"
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$PLIST_VERSION" != "$TAG_VERSION" ]; then
+            echo "The tag is $TAG_VERSION but Info.plist says $PLIST_VERSION." >&2
+            exit 1
+          fi
+
       - name: Package
         run: ./scripts/package.sh
+
+      - name: Work out the checksum of the disk image
+        id: sha256
+        run: |
+          DMG="$(ls build/dist/*.dmg)"
+          echo "hash=$(shasum -a 256 "$DMG" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          echo "version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+            app/Resources/Info.plist)" >> "$GITHUB_OUTPUT"
 
       - name: Publish the release
         uses: softprops/action-gh-release@v2
@@ -71,3 +90,25 @@ jobs:
             about 30 seconds. Later requests take about 40 ms.
 
             Point n8n at `http://127.0.0.1:5292/v1`. Read the README for the full setup.
+
+            ## Homebrew
+
+            ```bash
+            brew install --cask --no-quarantine chrisns/laya-mac-serve/laya-serve
+            ```
+
+      - name: Update the Homebrew tap
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "HOMEBREW_TAP_TOKEN is not set, so the tap stays as it is."
+            echo "Create a token with the workflow scope for"
+            echo "chrisns/homebrew-laya-mac-serve and add it as HOMEBREW_TAP_TOKEN."
+            exit 0
+          fi
+          gh workflow run update.yml \
+            --repo chrisns/homebrew-laya-mac-serve \
+            --field version="${{ steps.sha256.outputs.version }}" \
+            --field sha256="${{ steps.sha256.outputs.hash }}"

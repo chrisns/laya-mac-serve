@@ -295,9 +295,14 @@ def build_questions(req: ClassificationRequest) -> dict[str, dict[str, Any]]:
     if req.categories:
         if req.multi_label:
             for index, cat in enumerate(req.categories):
-                instructions = f'Does this text belong to the category "{cat.label}"?'
+                # This wording scored best against the model. "Does this text belong to
+                # the category X?" put the probability of a true category near 0.5.
                 if cat.description:
-                    instructions += f" That category means: {cat.description}"
+                    instructions = (
+                        f"Does this message concern {cat.label}, meaning {cat.description}?"
+                    )
+                else:
+                    instructions = f"Does this message concern {cat.label}?"
                 questions[f"cat_{index}"] = {"type": "noul", "instructions": instructions}
         else:
             criteria = {c.label: (c.description or c.label) for c in req.categories}

@@ -29,6 +29,17 @@ and no download at run time.
 
 ## Install
 
+With Homebrew:
+
+```bash
+brew install --cask --no-quarantine chrisns/laya-mac-serve/laya-serve
+```
+
+Leave out `--no-quarantine` if you prefer to approve the application in System
+Settings.
+
+By hand:
+
 1. Download the disk image from the
    [latest release](https://github.com/chrisns/laya-mac-serve/releases/latest).
 2. Drag `LayaServe.app` to Applications.
