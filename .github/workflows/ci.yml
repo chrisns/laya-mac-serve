@@ -14,6 +14,7 @@ jobs:
   python:
     name: Python tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
 
@@ -50,6 +51,7 @@ jobs:
   swift:
     name: Swift tests
     runs-on: macos-15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
 
@@ -63,6 +65,7 @@ jobs:
     name: Build the application
     runs-on: macos-15
     needs: [python, swift]
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
 
