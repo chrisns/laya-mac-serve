@@ -1,0 +1,14 @@
+{
+  "model": "laya-typed-decisions",
+  "messages": [
+    {
+      "role": "system",
+      "content": "Please classify the text provided by the user into one of the following categories: Billing, Technical, Sales, and use the provided formatting instructions below. Don't explain, and only output the json.\n\tYou must format your output as a JSON value that adheres to a given \"JSON Schema\" instance.\n\n\"JSON Schema\" is a declarative language that allows you to annotate and validate JSON documents.\n\nFor example, the example \"JSON Schema\" instance {\"properties\": {\"foo\": {\"description\": \"a list of test words\", \"type\": \"array\", \"items\": {\"type\": \"string\"}}}, \"required\": [\"foo\"]}}\nwould match an object with one required property, \"foo\". The \"type\" property specifies \"foo\" must be an \"array\", and the \"description\" property semantically describes it as \"a list of test words\". The items within \"foo\" must be strings.\nThus, the object {\"foo\": [\"bar\", \"baz\"]} is a well-formatted instance of this example \"JSON Schema\". The object {\"properties\": {\"foo\": [\"bar\", \"baz\"]}} is not well-formatted.\n\nYour output will be parsed and type-checked according to the provided schema instance, so make sure all fields in your output match the schema exactly and there are no trailing commas!\n\nHere is the JSON Schema instance your output must adhere to. Include the enclosing markdown codeblock:\n```json\n{\"type\": \"object\", \"properties\": {\"Billing\": {\"type\": \"boolean\", \"description\": \"Should be true if the input has category \\\"Billing\\\" (description: invoices, payments, refunds and pricing questions about an existing account)\"}, \"Technical\": {\"type\": \"boolean\", \"description\": \"Should be true if the input has category \\\"Technical\\\" (description: bugs, outages, errors and anything that stops the product working)\"}, \"Sales\": {\"type\": \"boolean\", \"description\": \"Should be true if the input has category \\\"Sales\\\" (description: new business, quotes, contracts and upgrades)\"}, \"fallback\": {\"type\": \"boolean\", \"description\": \"Should be true if none of the other categories apply\"}}, \"required\": [\"Billing\", \"Technical\", \"Sales\", \"fallback\"], \"additionalProperties\": false, \"$schema\": \"http://json-schema.org/draft-07/schema#\"}\n```\n\n\tCategories are mutually exclusive, and only one can be true\n\tIf no categories apply, select the \"fallback\" option."
+    },
+    {
+      "role": "user",
+      "content": "From: billing@acme.com\nSubject: Duplicate charge on invoice #4411\n\nHi, we were billed twice for March. Please refund the duplicate today or we will cancel our plan."
+    }
+  ],
+  "temperature": 0
+}

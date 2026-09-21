@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache the Python runtime download
+        uses: actions/cache@v4
+        with:
+          path: build/cache
+          key: pbs-${{ hashFiles('scripts/build_runtime.sh') }}
+
+      - name: Build the Python runtime
+        run: ./scripts/build_runtime.sh
+
+      - name: Build the application
+        run: ./scripts/build_app.sh
+
+      - name: Smoke test with the bundled runtime
+        run: ./scripts/smoke_test.sh
+
+      - name: Package
+        run: ./scripts/package.sh
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/dist/*.dmg
+            build/dist/*.zip
+          generate_release_notes: true
+          body: |
+            ## Install
+
+            Apple Silicon only. The application bundles its own Python, PyTorch and Laya.
+
+            1. Open the disk image and drag `LayaServe.app` to Applications.
+            2. The application is signed ad-hoc, not notarised. Remove the quarantine flag:
+
+               ```bash
+               xattr -dr com.apple.quarantine /Applications/LayaServe.app
+               ```
+
+            3. Start the application. It appears in the menu bar only.
+            4. The first classification downloads the model from Hugging Face. That takes
+               a few minutes. Later requests take about 40 ms.
+
+            Point n8n at `http://127.0.0.1:5292/v1`. Read the README for the full setup.

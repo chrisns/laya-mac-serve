@@ -1,0 +1,33 @@
+name: Real model test
+
+# This workflow downloads the real checkpoint, so it does not run on every push.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+
+jobs:
+  real-model:
+    name: Classify with the real checkpoint
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache the Python runtime download
+        uses: actions/cache@v4
+        with:
+          path: build/cache
+          key: pbs-${{ hashFiles('scripts/build_runtime.sh') }}
+
+      - name: Cache the Hugging Face model
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-laya-typed-decisions-v1
+
+      - name: Build the Python runtime
+        run: ./scripts/build_runtime.sh
+
+      - name: Classify a sample email with the real model
+        run: ./scripts/real_model_test.sh
