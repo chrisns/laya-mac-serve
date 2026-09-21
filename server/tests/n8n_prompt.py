@@ -114,3 +114,47 @@ def output_fixing_message(instructions: str, completion: str, error: str) -> str
         .replace("{completion}", completion)
         .replace("{error}", error)
     )
+
+
+SENTIMENT_SYSTEM_PROMPT_TEMPLATE = (
+    "You are highly intelligent and accurate sentiment analyzer. Analyze the sentiment of "
+    "the provided text. Categorize it into one of the following: {categories}. Use the "
+    "provided formatting instructions. Only output the JSON."
+)
+
+
+def sentiment_schema(categories: list[str]) -> dict[str, Any]:
+    """The schema of the n8n Sentiment Analysis node."""
+    return {
+        "type": "object",
+        "properties": {
+            "sentiment": {"type": "string", "enum": categories},
+            "strength": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "Strength score for sentiment in relation to the category",
+            },
+            "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        },
+        "required": ["sentiment", "strength", "confidence"],
+        "additionalProperties": False,
+        "$schema": "http://json-schema.org/draft-07/schema#",
+    }
+
+
+def sentiment_request(
+    text: str,
+    categories: list[str] | None = None,
+    model: str = "laya-typed-decisions",
+) -> dict[str, Any]:
+    categories = categories or ["Positive", "Neutral", "Negative"]
+    schema = sentiment_schema(categories)
+    head = SENTIMENT_SYSTEM_PROMPT_TEMPLATE.replace("{categories}", ", ".join(categories))
+    return {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": f"{head}\n\t{format_instructions(schema)}"},
+            {"role": "user", "content": text},
+        ],
+    }

@@ -190,3 +190,22 @@ def test_an_invalid_setting_is_corrected(client, tmp_path, monkeypatch):
     config = client.get("/admin/config").json()
     assert config["default_model"] == "laya-typed-decisions"
     assert config["device"] == "auto"
+
+
+def test_the_model_list_says_which_models_are_bundled(client):
+    data = client.get("/v1/models").json()
+    for model in data["data"]:
+        assert "x_bundled" in model
+        assert isinstance(model["x_bundled"], bool)
+
+
+def test_the_load_route_loads_the_model(client):
+    assert client.get("/status").json()["state"] == "unloaded"
+    body = client.post("/admin/load", json={}).json()
+    assert body["state"] == "loaded"
+    assert body["model"] == "laya-typed-decisions"
+
+
+def test_the_load_route_rejects_an_unknown_model(client):
+    response = client.post("/admin/load", json={"model": "gpt-4o"})
+    assert response.status_code == 404

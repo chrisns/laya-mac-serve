@@ -52,6 +52,17 @@ class Category:
 
 
 @dataclass
+class NumberField:
+    key: str
+    minimum: float
+    maximum: float
+    description: str
+    # "confidence" and "strength" come from the answer of the main question. Every other
+    # number comes from its own noul question.
+    derived: str | None = None
+
+
+@dataclass
 class EnumField:
     key: str
     values: list[str]
@@ -63,6 +74,7 @@ class ClassificationRequest:
     text: str
     categories: list[Category] = field(default_factory=list)
     enums: list[EnumField] = field(default_factory=list)
+    numbers: list[NumberField] = field(default_factory=list)
     multi_label: bool = False
     has_fallback: bool = False
     fallback_label: str = "other"
@@ -144,9 +156,34 @@ def _pick_fallback_label(taken: set[str]) -> str:
     return "none_of_the_above_option"
 
 
-def parse_schema(schema: dict[str, Any]) -> tuple[list[Category], list[EnumField], bool]:
+# These names have an obvious answer already, so they need no extra question.
+DERIVED_NUMBER_KEYS = {
+    "confidence": "confidence",
+    "strength": "probability",
+    "score": "probability",
+}
+
+
+def _parse_number(key: str, spec: dict[str, Any]) -> NumberField:
+    minimum = float(spec.get("minimum", 0.0))
+    maximum = float(spec.get("maximum", 1.0))
+    if maximum <= minimum:
+        maximum = minimum + 1.0
+    return NumberField(
+        key=key,
+        minimum=minimum,
+        maximum=maximum,
+        description=_clean_description(str(spec.get("description", "") or "")),
+        derived=DERIVED_NUMBER_KEYS.get(key.lower()),
+    )
+
+
+def parse_schema(
+    schema: dict[str, Any],
+) -> tuple[list[Category], list[EnumField], list[NumberField], bool]:
     categories: list[Category] = []
     enums: list[EnumField] = []
+    numbers: list[NumberField] = []
     has_fallback = False
     for key, spec in schema.get("properties", {}).items():
         if not isinstance(spec, dict):
@@ -167,7 +204,9 @@ def parse_schema(schema: dict[str, Any]) -> tuple[list[Category], list[EnumField
                     description=_clean_description(str(spec.get("description", "") or "")),
                 )
             )
-    return categories, enums, has_fallback
+        elif spec_type in ("number", "integer"):
+            numbers.append(_parse_number(key, spec))
+    return categories, enums, numbers, has_fallback
 
 
 def _check_repair(user_text: str, schema: dict[str, Any] | None) -> None:
@@ -224,11 +263,12 @@ def extract_request(messages: list[dict[str, Any]]) -> ClassificationRequest:
             "No JSON Schema was found in the prompt."
         )
 
-    categories, enums, has_fallback = parse_schema(schema)
-    if not categories and not enums:
+    categories, enums, numbers, has_fallback = parse_schema(schema)
+    answerable_numbers = [n for n in numbers if not n.derived]
+    if not categories and not enums and not answerable_numbers:
         raise UnsupportedRequest(
-            "laya-serve found a JSON Schema with no boolean category and no string enum. "
-            "Laya cannot generate free text."
+            "laya-serve found a JSON Schema with no boolean category, no string enum and "
+            "no number field. Laya cannot generate free text."
         )
     if not user_text.strip():
         raise UnsupportedRequest("laya-serve found no text to classify in the request.")
@@ -239,6 +279,7 @@ def extract_request(messages: list[dict[str, Any]]) -> ClassificationRequest:
         text=user_text,
         categories=categories,
         enums=enums,
+        numbers=numbers,
         multi_label=multi_label,
         has_fallback=has_fallback,
         fallback_label=_pick_fallback_label(taken),
@@ -272,6 +313,11 @@ def build_questions(req: ClassificationRequest) -> dict[str, dict[str, Any]]:
             "instructions": instructions,
             "criteria": {value: value for value in enum_field.values},
         }
+    for index, number in enumerate(req.numbers):
+        if number.derived:
+            continue
+        instructions = number.description or f'How high is "{number.key}" for this text?'
+        questions[f"num_{index}"] = {"type": "noul", "instructions": instructions}
     return questions
 
 
@@ -287,6 +333,8 @@ def render_answer(
     """
     payload: dict[str, Any] = {}
     detail: dict[str, Any] = {}
+    # A "confidence" or "strength" property takes its value from the main question.
+    primary: dict[str, float] = {"confidence": 0.0, "probability": 0.0}
 
     if req.categories:
         if req.multi_label:
@@ -318,6 +366,8 @@ def render_answer(
                 payload[cat.key] = (not use_fallback) and (winner == cat.label)
             if req.has_fallback:
                 payload[FALLBACK_KEY] = use_fallback
+            primary["confidence"] = confidence
+            primary["probability"] = top_probability
             detail["category"] = {
                 "choice": winner,
                 "top_probability": round(top_probability, 4),
@@ -332,6 +382,10 @@ def render_answer(
         if choice not in enum_field.values:
             choice = enum_field.values[0]
         payload[enum_field.key] = choice
+        enum_probabilities = {k: float(v) for k, v in (answer.get("probabilities") or {}).items()}
+        if index == 0 and not req.categories:
+            primary["confidence"] = float(answer.get("confidence", 0.0))
+            primary["probability"] = enum_probabilities.get(choice, 0.0)
         detail[enum_field.key] = {
             "choice": choice,
             "confidence": round(float(answer.get("confidence", 0.0)), 4),
@@ -339,6 +393,14 @@ def render_answer(
                 k: round(float(v), 4) for k, v in (answer.get("probabilities") or {}).items()
             },
         }
+
+    for index, number in enumerate(req.numbers):
+        if number.derived:
+            value = primary.get(number.derived, 0.0)
+        else:
+            value = float(answers.get(f"num_{index}", {}).get("noul", 0.0))
+        scaled = number.minimum + value * (number.maximum - number.minimum)
+        payload[number.key] = round(scaled, 4)
 
     # Keep the property order of the schema, because it reads better in n8n.
     ordered = {key: payload[key] for key in req.schema.get("properties", {}) if key in payload}

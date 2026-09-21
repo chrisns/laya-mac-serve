@@ -256,3 +256,72 @@ def test_the_fence_is_parseable():
     text = translator.fence({"Billing": True})
     assert text.startswith("```json\n")
     assert json.loads(text.split("\n", 1)[1].rsplit("\n```", 1)[0]) == {"Billing": True}
+
+
+def test_the_sentiment_analysis_schema_is_answerable():
+    from n8n_prompt import sentiment_request
+
+    body = sentiment_request(EMAIL)
+    req = translator.extract_request(body["messages"])
+    assert [e.key for e in req.enums] == ["sentiment"]
+    assert [n.key for n in req.numbers] == ["strength", "confidence"]
+    # Both numbers come from the choice, so they need no extra question.
+    assert all(n.derived for n in req.numbers)
+    questions = translator.build_questions(req)
+    assert list(questions) == ["enum_0"]
+
+    payload, _ = translator.render_answer(
+        req,
+        {
+            "enum_0": {
+                "choice": "Negative",
+                "probabilities": {"Positive": 0.1, "Neutral": 0.2, "Negative": 0.7},
+                "confidence": 0.55,
+            }
+        },
+    )
+    assert payload == {"sentiment": "Negative", "strength": 0.7, "confidence": 0.55}
+    assert set(payload) == set(sentiment_request(EMAIL) and ["sentiment", "strength", "confidence"])
+
+
+def test_a_plain_number_field_gets_its_own_question():
+    schema = {
+        "type": "object",
+        "properties": {
+            "urgency": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 10,
+                "description": "How urgent is this message?",
+            }
+        },
+    }
+    messages = [
+        {"role": "system", "content": "```json\n" + json.dumps(schema) + "\n```"},
+        {"role": "user", "content": EMAIL},
+    ]
+    req = translator.extract_request(messages)
+    questions = translator.build_questions(req)
+    assert questions == {"num_0": {"type": "noul", "instructions": "How urgent is this message?"}}
+    payload, _ = translator.render_answer(req, {"num_0": {"noul": 0.5, "confidence": 0.5}})
+    assert payload == {"urgency": 5.0}
+
+
+def test_a_number_field_alone_is_not_rejected():
+    schema = {"type": "object", "properties": {"risk": {"type": "number"}}}
+    messages = [
+        {"role": "system", "content": "```json\n" + json.dumps(schema) + "\n```"},
+        {"role": "user", "content": EMAIL},
+    ]
+    assert translator.extract_request(messages).numbers[0].key == "risk"
+
+
+def test_a_derived_number_alone_is_rejected():
+    # Nothing here can be classified, so the request must fail loudly.
+    schema = {"type": "object", "properties": {"confidence": {"type": "number"}}}
+    messages = [
+        {"role": "system", "content": "```json\n" + json.dumps(schema) + "\n```"},
+        {"role": "user", "content": EMAIL},
+    ]
+    with pytest.raises(translator.UnsupportedRequest):
+        translator.extract_request(messages)

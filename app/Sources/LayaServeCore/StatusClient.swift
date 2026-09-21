@@ -31,6 +31,11 @@ public actor StatusClient {
         _ = try? await post("/admin/unload", body: [:])
     }
 
+    /// Load the model now, so the first classification does not wait for it.
+    public func loadNow() async {
+        _ = try? await post("/admin/load", body: [:])
+    }
+
     /// Push a settings change to the running server, so it takes effect at once.
     public func pushSettings(_ settings: Settings) async {
         let encoder = JSONEncoder()

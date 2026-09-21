@@ -8,11 +8,15 @@ Laya is a non-autoregressive decision engine from Convai Innovations. It answers
 questions in one forward pass of about 40 ms. It does not generate text, so it cannot
 hallucinate an answer that is outside your category list.
 
+The weights ship inside the application. It needs no network, no Hugging Face account
+and no download at run time.
+
 ## What it does
 
 - Runs a local HTTP server that speaks the OpenAI chat completions protocol.
 - Translates each n8n classification request into Laya typed questions.
 - Returns the exact JSON object that the n8n node expects.
+- Holds the model weights inside the application, so it works with no network.
 - Unloads the model after an idle period, and loads it again on the next request.
 - Lives in the menu bar. It has no Dock icon and no window.
 
@@ -20,8 +24,8 @@ hallucinate an answer that is outside your category list.
 
 - Apple Silicon. PyTorch has no current macOS x86_64 wheel.
 - macOS 13 or later.
-- About 2 GB of disk for the application and about 1 GB for the model weights.
-- About 3 GB of memory while the model is loaded.
+- About 1.5 GB of disk. That holds CPython, PyTorch and the weights.
+- About 1.3 GB of memory while the model is loaded, and about 60 MB when it is not.
 
 ## Install
 
@@ -36,8 +40,9 @@ hallucinate an answer that is outside your category list.
 
 4. Start the application. A brain icon appears in the menu bar.
 
-The first classification downloads the model from Hugging Face. That takes a few
-minutes. Later requests take about 40 ms.
+The first classification loads the model, which takes about 30 seconds. Later requests
+take about 40 ms. Use **Load model now** in the menu to load it before the first
+workflow runs.
 
 ## The menu
 
@@ -45,9 +50,10 @@ minutes. Later requests take about 40 ms.
 |---|---|
 | Status line | Shows the loaded model, the device and the memory use. |
 | Copy base URL | Copies the URL for the n8n credential. |
+| Load model now | Loads the model, so the first classification is fast. |
 | Unload model now | Frees the memory at once. |
 | Unload when idle for | Never, 5 minutes, 15 minutes, 30 minutes, 1 hour, 2 hours, 4 hours. |
-| Model | Selects the checkpoint. |
+| Default model | The checkpoint to use when the request names none. A checkpoint that is not in the application shows "(downloads)". |
 | Allow connections from the network | Binds to all interfaces and generates an API key. |
 | Open log file | Opens `~/Library/Logs/LayaServe/server.log`. |
 | Open settings folder | Opens the folder that holds `config.json`. |
@@ -109,6 +115,7 @@ n8n node ignores it. It is there for debugging.
 | `GET /v1/models` | Lists the four model identities. |
 | `POST /v1/chat/completions` | The OpenAI interface. It supports `stream: true`. |
 | `POST /v1/classify` | Native Laya typed questions. |
+| `POST /admin/load` | Loads the model now. |
 | `POST /admin/unload` | Unloads the model now. |
 | `GET /admin/config`, `POST /admin/config` | Reads and writes the settings. |
 
@@ -150,16 +157,21 @@ curl -s http://127.0.0.1:5292/v1/classify -H 'Content-Type: application/json' -d
 
 ## The models
 
-| Model identity | Checkpoint | Parameters | Context | Use it for |
+| Model identity | Checkpoint | Parameters | Context | In the application |
 |---|---|---|---|---|
-| `laya-typed-decisions` | fine-tuned ModernBERT-large | 421M | 1024 | The default. Typed decisions and email triage. |
-| `laya` | ModernBERT-large | 421M | 512 | English text. |
-| `laya-multilingual` | mmBERT-base | 322M | 1024 | Over 100 languages. |
-| `laya-router` | all of them | - | - | Laya picks the checkpoint from the script and the language. |
+| `laya-typed-decisions` | fine-tuned ModernBERT-large | 421M | 1024 | Yes. This is the default. |
+| `laya` | ModernBERT-large | 421M | 512 | No. It downloads on first use. |
+| `laya-multilingual` | mmBERT-base | 322M | 1024 | No. It downloads on first use. |
+| `laya-router` | all of them | - | - | No. It downloads on first use. |
 
-The model card reports 0.766 accuracy for the fine-tuned typed-decisions checkpoint
-against 0.362 for a base checkpoint with no fine-tuning. Use the default unless you
-classify text that is not English.
+Only the default checkpoint ships inside the application. Three checkpoints would make
+the disk image too large. The model card reports 0.766 accuracy for the fine-tuned
+typed-decisions checkpoint against 0.362 for a base checkpoint with no fine-tuning, so
+the default is the right one for email triage.
+
+Warning: the other three identities need a download from Hugging Face on first use.
+Pick one of them only if you classify text that is not English. `GET /v1/models`
+reports `x_bundled` for each identity, and the menu marks them.
 
 ## Settings
 
@@ -181,16 +193,22 @@ application and the server share the file. Environment variables override it.
 A change of `host`, `port` or `api_key` restarts the server. Other changes take effect
 at once.
 
+There is no settings key for the model folder. Set the environment variable
+`LAYA_SERVE_MODEL_DIR` to point the server at your own checkpoint folder. That folder
+holds one directory for each checkpoint: `typed-decisions`, `english` or
+`multilingual`.
+
 ## Measured performance
 
 On an M1 Max with `laya-typed-decisions` on MPS:
 
-| Step | Time |
+| Step | Measurement |
 |---|---|
-| First load from the Hugging Face cache | about 30 seconds |
-| First load including the download | about 2 minutes |
-| One classification after the load | about 40 ms |
-| Resident memory while loaded | about 3 GB |
+| First classification, including the model load | about 34 seconds |
+| Each classification after that | about 40 ms |
+| Resident memory while loaded | about 1.3 GB |
+| Resident memory after the idle unload | about 60 MB |
+| Application on disk | about 1.5 GB |
 
 ## Build it yourself
 
@@ -204,6 +222,7 @@ PYTHONPATH=server .venv/bin/python -m laya_serve
 
 # The full application
 ./scripts/build_runtime.sh   # downloads CPython and PyTorch, about 5 minutes
+./scripts/fetch_model.sh     # downloads the weights, about 810 MB
 ./scripts/build_app.sh       # assembles and signs build/LayaServe.app
 ./scripts/package.sh         # makes the zip and the disk image
 ```
@@ -214,7 +233,8 @@ Run the tests:
 cd server && LAYA_SERVE_FAKE_MODEL=1 pytest -q   # the server
 swift test --package-path app                    # the menu bar application
 ./scripts/smoke_test.sh                          # an end-to-end check with a stub model
-./scripts/real_model_test.sh                     # an end-to-end check with the real model
+./scripts/offline_test.sh                        # an end-to-end check with the real
+                                                 # weights and no network access
 ```
 
 Set `LAYA_SERVE_FAKE_MODEL=1` to replace the model with a deterministic stub. CI uses
@@ -222,6 +242,9 @@ it, so CI needs neither PyTorch nor the weights.
 
 ## Licence
 
-Apache 2.0, the same as Laya. Laya is by
-[Convai Innovations](https://huggingface.co/convaiinnovations/laya). This project is not
-affiliated with Convai Innovations or with n8n.
+MIT. See [LICENSE](LICENSE).
+
+The Laya model and the `laya` Python package are Apache 2.0, by
+[Convai Innovations](https://huggingface.co/convaiinnovations/laya). The application
+ships those weights under that licence. This project is not affiliated with Convai
+Innovations or with n8n.

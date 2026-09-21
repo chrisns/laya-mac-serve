@@ -7,12 +7,15 @@ loads it again.
 
 from __future__ import annotations
 
+import contextlib
 import gc
 import logging
 import os
 import subprocess
 import threading
 import time
+from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 from .config import MODEL_IDS, Config
@@ -25,8 +28,55 @@ CHECKPOINTS: dict[str, str | None] = {
     "laya-multilingual": "multilingual",
     "laya-typed-decisions": "typed-decisions",
 }
+# The directory name of each checkpoint inside the bundled model folder.
+BUNDLE_DIRS: dict[str, str] = {
+    "laya": "english",
+    "laya-multilingual": "multilingual",
+    "laya-typed-decisions": "typed-decisions",
+}
 ROUTER_MODEL = "laya-router"
 HF_REPO = "convaiinnovations/laya"
+
+
+def model_root() -> Path | None:
+    """The folder that holds the checkpoints that ship inside the application."""
+    override = os.environ.get("LAYA_SERVE_MODEL_DIR")
+    if override:
+        path = Path(override).expanduser()
+        return path if path.is_dir() else None
+    # laya_serve lives at Contents/Resources/server/laya_serve inside the bundle.
+    bundled = Path(__file__).resolve().parent.parent.parent / "model"
+    return bundled if bundled.is_dir() else None
+
+
+def bundled_checkpoint(model_id: str) -> Path | None:
+    """The local directory of a checkpoint, or None when it is not in the bundle."""
+    root = model_root()
+    if root is None or model_id not in BUNDLE_DIRS:
+        return None
+    path = root / BUNDLE_DIRS[model_id]
+    return path if (path / "rl_agent_config.json").is_file() else None
+
+
+def bundled_models() -> list[str]:
+    return [model_id for model_id in BUNDLE_DIRS if bundled_checkpoint(model_id)]
+
+
+@contextlib.contextmanager
+def _offline() -> Iterator[None]:
+    """Block every Hugging Face network call while a bundled checkpoint loads."""
+    keys = ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE")
+    previous = {key: os.environ.get(key) for key in keys}
+    for key in keys:
+        os.environ[key] = "1"
+    try:
+        yield
+    finally:
+        for key, value in previous.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 
 def fake_model_enabled() -> bool:
@@ -63,9 +113,18 @@ class LayaEngine:
 
         device = None if self.config.device == "auto" else self.config.device
         token = self.config.hf_token or None
+
+        local = bundled_checkpoint(model_id)
+        if local is not None:
+            log.info("loading the bundled checkpoint at %s", local)
+            with _offline():
+                agent = laya.load(str(local), device=device)
+            return agent, str(getattr(agent, "device", device or "auto"))
+
         if model_id == ROUTER_MODEL:
             agent = laya.Router(device=device, token=token, max_loaded=1, preload=False)
             return agent, device or "auto"
+        log.info("downloading %s from Hugging Face", model_id)
         agent = laya.load(HF_REPO, subfolder=CHECKPOINTS[model_id], device=device, token=token)
         return agent, str(getattr(agent, "device", device or "auto"))
 
@@ -176,6 +235,7 @@ class LayaEngine:
                 "peak_rss_mb": _peak_rss_mb(),
                 "error": self._error,
                 "fake_model": fake_model_enabled(),
+                "bundled_models": bundled_models(),
             }
 
 

@@ -11,6 +11,8 @@ public struct ServerStatus: Codable, Equatable, Sendable {
     public var error: String?
     public var fakeModel: Bool?
     public var exposedWithoutKey: Bool?
+    /// The checkpoints that ship inside the application. Any other one needs a download.
+    public var bundledModels: [String]?
 
     enum CodingKeys: String, CodingKey {
         case state
@@ -22,6 +24,7 @@ public struct ServerStatus: Codable, Equatable, Sendable {
         case error
         case fakeModel = "fake_model"
         case exposedWithoutKey = "exposed_without_key"
+        case bundledModels = "bundled_models"
     }
 
     public init(
@@ -33,7 +36,8 @@ public struct ServerStatus: Codable, Equatable, Sendable {
         rssMB: Double? = nil,
         error: String? = nil,
         fakeModel: Bool? = nil,
-        exposedWithoutKey: Bool? = nil
+        exposedWithoutKey: Bool? = nil,
+        bundledModels: [String]? = nil
     ) {
         self.state = state
         self.model = model
@@ -44,6 +48,7 @@ public struct ServerStatus: Codable, Equatable, Sendable {
         self.error = error
         self.fakeModel = fakeModel
         self.exposedWithoutKey = exposedWithoutKey
+        self.bundledModels = bundledModels
     }
 }
 

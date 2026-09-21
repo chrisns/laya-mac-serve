@@ -10,6 +10,7 @@ final class MenuBarController {
     private var client: StatusClient
     private var settings: Settings
     private var state: MenuState = .starting
+    private var bundledModels: [String] = []
     private var pollTask: Task<Void, Never>?
 
     private let statusMenuItem = NSMenuItem(title: "Starting...", action: nil, keyEquivalent: "")
@@ -45,6 +46,11 @@ final class MenuBarController {
         urlMenuItem.target = self
         menu.addItem(urlMenuItem)
 
+        let loadItem = NSMenuItem(
+            title: "Load model now", action: #selector(loadNow), keyEquivalent: "")
+        loadItem.target = self
+        menu.addItem(loadItem)
+
         let unloadItem = NSMenuItem(
             title: "Unload model now", action: #selector(unloadNow), keyEquivalent: "")
         unloadItem.target = self
@@ -70,7 +76,7 @@ final class MenuBarController {
             item.representedObject = model
             modelMenu.addItem(item)
         }
-        let modelParent = NSMenuItem(title: "Model", action: nil, keyEquivalent: "")
+        let modelParent = NSMenuItem(title: "Default model", action: nil, keyEquivalent: "")
         modelParent.submenu = modelMenu
         menu.addItem(modelParent)
 
@@ -116,7 +122,11 @@ final class MenuBarController {
             item.state = seconds == currentInterval.seconds ? .on : .off
         }
         for item in modelMenu.items {
-            item.state = (item.representedObject as? String) == settings.defaultModel ? .on : .off
+            guard let model = item.representedObject as? String else { continue }
+            item.state = model == settings.defaultModel ? .on : .off
+            // Say which checkpoints ship inside the application. Any other one downloads.
+            let bundled = bundledModels.isEmpty || bundledModels.contains(model)
+            item.title = bundled ? Models.title(for: model) : Models.title(for: model) + "  (downloads)"
         }
         networkItem.state = settings.listensOnNetwork ? .on : .off
     }
@@ -131,6 +141,7 @@ final class MenuBarController {
                 let status = await self.client.status()
                 await MainActor.run {
                     self.state = MenuState.from(status)
+                    self.bundledModels = status?.bundledModels ?? []
                     self.refreshMenu()
                 }
                 try? await Task.sleep(nanoseconds: 5_000_000_000)
@@ -143,6 +154,10 @@ final class MenuBarController {
     @objc private func copyBaseURL() {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(settings.baseURL, forType: .string)
+    }
+
+    @objc private func loadNow() {
+        Task { await client.loadNow() }
     }
 
     @objc private func unloadNow() {

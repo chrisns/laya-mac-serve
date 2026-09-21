@@ -23,6 +23,6 @@
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>Apache-2.0. Laya is by Convai Innovations.</string>
+	<string>MIT licence. The Laya model is Apache-2.0, by Convai Innovations.</string>
 </dict>
 </plist>

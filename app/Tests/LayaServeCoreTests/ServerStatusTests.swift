@@ -58,3 +58,20 @@ final class ServerStatusTests: XCTestCase {
         }
     }
 }
+
+extension ServerStatusTests {
+    func testDecodesTheBundledModelList() throws {
+        let json = """
+            {"state":"unloaded","bundled_models":["laya-typed-decisions"],"rss_mb":21.0}
+            """
+        let status = try JSONDecoder().decode(ServerStatus.self, from: Data(json.utf8))
+        XCTAssertEqual(status.bundledModels, ["laya-typed-decisions"])
+    }
+
+    func testAnOlderServerReplyHasNoBundledModelList() throws {
+        let json = "{\"state\":\"unloaded\"}"
+        let status = try JSONDecoder().decode(ServerStatus.self, from: Data(json.utf8))
+        XCTAssertNil(status.bundledModels)
+        XCTAssertEqual(MenuState.from(status), .unloaded)
+    }
+}

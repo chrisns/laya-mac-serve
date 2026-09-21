@@ -21,7 +21,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from . import translator
 from .config import MODEL_IDS, Config
-from .engine import LayaEngine, ModelError
+from .engine import LayaEngine, ModelError, bundled_models
 
 log = logging.getLogger("laya_serve.app")
 
@@ -102,6 +102,20 @@ def create_app(config: Config | None = None, engine: LayaEngine | None = None) -
     async def admin_unload() -> dict[str, Any]:
         return {"unloaded": await run_in_threadpool(engine.unload)}
 
+    @app.post("/admin/load")
+    async def admin_load(body: dict[str, Any] | None = None) -> Any:
+        """Load the model now, so the first classification does not wait for it."""
+        model_id = (body or {}).get("model") or config.default_model
+        if model_id not in MODEL_IDS:
+            return openai_error(
+                f"The model {model_id!r} does not exist.", status=404, code="model_not_found"
+            )
+        try:
+            await run_in_threadpool(engine.ensure_loaded, model_id)
+        except ModelError as exc:
+            return openai_error(str(exc), status=503, err_type="server_error", code="model_error")
+        return engine.status()
+
     @app.get("/admin/config")
     async def admin_get_config() -> dict[str, Any]:
         return config.as_dict()
@@ -124,6 +138,7 @@ def create_app(config: Config | None = None, engine: LayaEngine | None = None) -
     @app.get("/v1/models")
     async def list_models() -> dict[str, Any]:
         created = int(time.time())
+        bundled = set(bundled_models())
         return {
             "object": "list",
             "data": [
@@ -132,6 +147,8 @@ def create_app(config: Config | None = None, engine: LayaEngine | None = None) -
                     "object": "model",
                     "created": created,
                     "owned_by": "convaiinnovations",
+                    # A model that is not bundled downloads from Hugging Face on first use.
+                    "x_bundled": model_id in bundled,
                 }
                 for model_id in MODEL_IDS
             ],

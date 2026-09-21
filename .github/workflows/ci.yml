@@ -72,8 +72,17 @@ jobs:
           path: build/cache
           key: pbs-${{ hashFiles('scripts/build_runtime.sh') }}
 
+      - name: Cache the model weights
+        uses: actions/cache@v4
+        with:
+          path: build/model
+          key: laya-model-typed-decisions-v1
+
       - name: Build the Python runtime
         run: ./scripts/build_runtime.sh
+
+      - name: Fetch the model weights
+        run: ./scripts/fetch_model.sh
 
       - name: Build the application
         run: ./scripts/build_app.sh
@@ -81,12 +90,19 @@ jobs:
       - name: Smoke test with the bundled runtime
         run: ./scripts/smoke_test.sh
 
+      - name: Classify with the real bundled model and no network access
+        run: ./scripts/offline_test.sh
+
       - name: Package
         run: ./scripts/package.sh
 
       - name: Check that the application has no Dock icon
         run: |
           /usr/libexec/PlistBuddy -c 'Print :LSUIElement' build/LayaServe.app/Contents/Info.plist | grep -q true
+
+      - name: Check that the weights are inside the application
+        run: |
+          test -f build/LayaServe.app/Contents/Resources/model/typed-decisions/model.safetensors
 
       - uses: actions/upload-artifact@v5
         with:

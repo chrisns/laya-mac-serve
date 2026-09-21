@@ -21,14 +21,26 @@ jobs:
           path: build/cache
           key: pbs-${{ hashFiles('scripts/build_runtime.sh') }}
 
+      - name: Cache the model weights
+        uses: actions/cache@v4
+        with:
+          path: build/model
+          key: laya-model-typed-decisions-v1
+
       - name: Build the Python runtime
         run: ./scripts/build_runtime.sh
+
+      - name: Fetch the model weights
+        run: ./scripts/fetch_model.sh
 
       - name: Build the application
         run: ./scripts/build_app.sh
 
       - name: Smoke test with the bundled runtime
         run: ./scripts/smoke_test.sh
+
+      - name: Classify with the real bundled model and no network access
+        run: ./scripts/offline_test.sh
 
       - name: Package
         run: ./scripts/package.sh
@@ -53,7 +65,9 @@ jobs:
                ```
 
             3. Start the application. It appears in the menu bar only.
-            4. The first classification downloads the model from Hugging Face. That takes
-               a few minutes. Later requests take about 40 ms.
+
+            The weights ship inside the application, so it needs no network and no
+            Hugging Face account. The first classification loads the model, which takes
+            about 30 seconds. Later requests take about 40 ms.
 
             Point n8n at `http://127.0.0.1:5292/v1`. Read the README for the full setup.

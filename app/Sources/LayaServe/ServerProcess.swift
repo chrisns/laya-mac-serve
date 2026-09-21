@@ -27,6 +27,21 @@ final class ServerProcess {
         Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/server")
     }
 
+    /// The weights that ship inside the application. The server then needs no network.
+    static func modelRootURL() -> URL? {
+        let bundled = Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/model")
+        var isDirectory: ObjCBool = false
+        if FileManager.default.fileExists(atPath: bundled.path, isDirectory: &isDirectory),
+            isDirectory.boolValue
+        {
+            return bundled
+        }
+        if let override = ProcessInfo.processInfo.environment["LAYA_SERVE_MODEL_DIR"] {
+            return URL(fileURLWithPath: override)
+        }
+        return nil
+    }
+
     static var logURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Logs/LayaServe/server.log")
@@ -57,6 +72,9 @@ final class ServerProcess {
         environment["PYTHONPATH"] = Self.serverRootURL().path
         environment["PYTHONUNBUFFERED"] = "1"
         environment["PYTHONDONTWRITEBYTECODE"] = "1"
+        if let model = Self.modelRootURL() {
+            environment["LAYA_SERVE_MODEL_DIR"] = model.path
+        }
         task.environment = environment
 
         if !FileManager.default.fileExists(atPath: Self.logURL.path) {
