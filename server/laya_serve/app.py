@@ -64,7 +64,7 @@ def create_app(config: Config | None = None, engine: LayaEngine | None = None) -
                 await task
             engine.unload()
 
-    app = FastAPI(title="laya-serve", version="0.1.0", docs_url="/docs", lifespan=lifespan)
+    app = FastAPI(title="laya-serve", version="0.1.1", docs_url="/docs", lifespan=lifespan)
     app.state.config = config
     app.state.engine = engine
 
