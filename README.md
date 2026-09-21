@@ -125,6 +125,22 @@ Laya Serve reads the JSON Schema out of the prompt and builds Laya questions fro
 Every reply carries an `x_laya` object with the probabilities and the confidence. The
 n8n node ignores it. It is there for debugging.
 
+## Getting good answers out of Laya
+
+Read [docs/prompting-guide.md](docs/prompting-guide.md) before you write your
+categories. It reports 93 measured configurations against 300 hand-labelled emails.
+
+The short version:
+
+- Ask what a text is **about**. Do not ask what to **do** about it. Topic questions
+  beat their baseline by 31 points. Action questions beat theirs by 2.
+- Use one `noul` question for each class. Do not use one `choice` question with many
+  options, because they share a 192 token budget.
+- Trust the gap between the best and the second best answer, not the probability. At a
+  gap of 0.15 the model answers a third of the traffic and is right 90% of the time.
+
+[docs/experiment-log.md](docs/experiment-log.md) holds every configuration and score.
+
 ## Endpoints
 
 | Route | Purpose |
