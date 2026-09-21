@@ -57,6 +57,7 @@ class NumberField:
     minimum: float
     maximum: float
     description: str
+    is_integer: bool = False
     # "confidence" and "strength" come from the answer of the main question. Every other
     # number comes from its own noul question.
     derived: str | None = None
@@ -164,7 +165,7 @@ DERIVED_NUMBER_KEYS = {
 }
 
 
-def _parse_number(key: str, spec: dict[str, Any]) -> NumberField:
+def _parse_number(key: str, spec: dict[str, Any], is_integer: bool) -> NumberField:
     minimum = float(spec.get("minimum", 0.0))
     maximum = float(spec.get("maximum", 1.0))
     if maximum <= minimum:
@@ -174,6 +175,7 @@ def _parse_number(key: str, spec: dict[str, Any]) -> NumberField:
         minimum=minimum,
         maximum=maximum,
         description=_clean_description(str(spec.get("description", "") or "")),
+        is_integer=is_integer,
         derived=DERIVED_NUMBER_KEYS.get(key.lower()),
     )
 
@@ -205,7 +207,7 @@ def parse_schema(
                 )
             )
         elif spec_type in ("number", "integer"):
-            numbers.append(_parse_number(key, spec))
+            numbers.append(_parse_number(key, spec, spec_type == "integer"))
     return categories, enums, numbers, has_fallback
 
 
@@ -351,6 +353,13 @@ def render_answer(
                 }
             if req.has_fallback:
                 payload[FALLBACK_KEY] = not any_true
+            best: dict[str, Any] = max(
+                (answers.get(f"cat_{i}", {}) for i in range(len(req.categories))),
+                key=lambda a: float(a.get("noul", 0.0)),
+                default={},
+            )
+            primary["probability"] = float(best.get("noul", 0.0))
+            primary["confidence"] = float(best.get("confidence", 0.0))
         else:
             answer = answers.get("category", {})
             probabilities = {k: float(v) for k, v in (answer.get("probabilities") or {}).items()}
@@ -400,7 +409,8 @@ def render_answer(
         else:
             value = float(answers.get(f"num_{index}", {}).get("noul", 0.0))
         scaled = number.minimum + value * (number.maximum - number.minimum)
-        payload[number.key] = round(scaled, 4)
+        # An integer property must not receive a decimal, because the parser rejects it.
+        payload[number.key] = int(round(scaled)) if number.is_integer else round(scaled, 4)
 
     # Keep the property order of the schema, because it reads better in n8n.
     ordered = {key: payload[key] for key in req.schema.get("properties", {}) if key in payload}

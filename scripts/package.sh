@@ -19,8 +19,11 @@ echo "==> Making the disk image"
 STAGING="$BUILD_DIR/dmg-staging"
 rm -rf "$STAGING"
 mkdir -p "$STAGING"
-cp -R "$APP" "$STAGING/"
+# Use ditto, because it keeps the metadata that the code signature covers.
+ditto "$APP" "$STAGING/LayaServe.app"
 ln -s /Applications "$STAGING/Applications"
+codesign --verify --deep --strict "$STAGING/LayaServe.app"
+echo "    the staged application still has a valid signature"
 DMG="$DIST_DIR/LayaServe-$VERSION-arm64.dmg"
 
 # hdiutil fails now and then on a busy build machine. Try again before giving up.

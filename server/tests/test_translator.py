@@ -325,3 +325,61 @@ def test_a_derived_number_alone_is_rejected():
     ]
     with pytest.raises(translator.UnsupportedRequest):
         translator.extract_request(messages)
+
+
+def test_an_integer_field_gets_a_whole_number():
+    schema = {
+        "type": "object",
+        "properties": {
+            "priority": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5,
+                "description": "How high is the priority?",
+            }
+        },
+    }
+    messages = [
+        {"role": "system", "content": "```json\n" + json.dumps(schema) + "\n```"},
+        {"role": "user", "content": EMAIL},
+    ]
+    req = translator.extract_request(messages)
+    payload, _ = translator.render_answer(req, {"num_0": {"noul": 0.77, "confidence": 0.8}})
+    assert payload == {"priority": 4}
+    assert isinstance(payload["priority"], int)
+
+
+def test_a_derived_number_works_with_multiple_labels():
+    schema = {
+        "type": "object",
+        "properties": {
+            "Billing": {
+                "type": "boolean",
+                "description": (
+                    'Should be true if the input has category "Billing" (description: money)'
+                ),
+            },
+            "Sales": {
+                "type": "boolean",
+                "description": (
+                    'Should be true if the input has category "Sales" (description: deals)'
+                ),
+            },
+            "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        },
+    }
+    messages = [
+        {
+            "role": "system",
+            "content": "Categories are not mutually exclusive, and multiple can be true\n"
+            "```json\n" + json.dumps(schema) + "\n```",
+        },
+        {"role": "user", "content": EMAIL},
+    ]
+    req = translator.extract_request(messages)
+    assert req.multi_label is True
+    payload, _ = translator.render_answer(
+        req,
+        {"cat_0": {"noul": 0.91, "confidence": 0.91}, "cat_1": {"noul": 0.2, "confidence": 0.8}},
+    )
+    assert payload == {"Billing": True, "Sales": False, "confidence": 0.91}

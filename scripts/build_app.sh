@@ -52,6 +52,12 @@ else
 	echo "==> SKIP_RUNTIME=1, so the bundle holds no Python runtime"
 fi
 
+echo "==> Removing bytecode caches"
+# A .pyc file that appears after the signature breaks the seal of the bundle. The
+# application sets PYTHONDONTWRITEBYTECODE, so nothing writes one at run time.
+find "$APP" -name '__pycache__' -type d -prune -exec rm -rf {} + 2> /dev/null || true
+find "$APP" -name '*.pyc' -delete 2> /dev/null || true
+
 echo "==> Signing the bundle"
 # Every nested binary needs its own signature before the bundle signature.
 if [[ "${SKIP_RUNTIME:-0}" != "1" ]]; then

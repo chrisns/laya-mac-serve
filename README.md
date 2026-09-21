@@ -76,6 +76,10 @@ API key. Keep the key secret.
 Give every category a clear description. Laya reads the description, not the category
 name alone.
 
+Keep the category list short. Laya gives 192 tokens to all the options together, so
+twenty categories with long descriptions lose detail. The server cuts each description
+to 240 characters for the same reason.
+
 ### Node support
 
 | n8n node | Works | Why |

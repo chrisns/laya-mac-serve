@@ -48,9 +48,9 @@ jobs:
       - name: Publish the release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            build/dist/*.dmg
-            build/dist/*.zip
+          # Publish the disk image only. The zip holds the same application and it is
+          # about 1 GB, so uploading both wastes time.
+          files: build/dist/*.dmg
           generate_release_notes: true
           body: |
             ## Install
