@@ -66,7 +66,7 @@ jobs:
             app/Resources/Info.plist)" >> "$GITHUB_OUTPUT"
 
       - name: Publish the release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           # Publish the disk image only. The zip holds the same application and it is
           # about 1 GB, so uploading both wastes time.
