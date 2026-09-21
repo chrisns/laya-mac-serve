@@ -95,7 +95,8 @@ jobs:
             ## Homebrew
 
             ```bash
-            brew install --cask --no-quarantine chrisns/laya-mac-serve/laya-serve
+            brew install --cask chrisns/laya-mac-serve/laya-serve
+            xattr -dr com.apple.quarantine /Applications/LayaServe.app
             ```
 
       - name: Update the Homebrew tap

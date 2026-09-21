@@ -32,11 +32,15 @@ and no download at run time.
 With Homebrew:
 
 ```bash
-brew install --cask --no-quarantine chrisns/laya-mac-serve/laya-serve
+brew install --cask chrisns/laya-mac-serve/laya-serve
 ```
 
-Leave out `--no-quarantine` if you prefer to approve the application in System
-Settings.
+The application is ad-hoc signed, not notarised, so macOS blocks the first launch.
+Remove the quarantine flag:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/LayaServe.app
+```
 
 By hand:
 
