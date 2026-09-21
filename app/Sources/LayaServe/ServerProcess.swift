@@ -63,7 +63,9 @@ final class ServerProcess {
 
         let task = Process()
         task.executableURL = python
-        task.arguments = ["-m", "laya_serve", "--log-file"]
+        // --watch-parent makes the server stop when this application dies. A SIGKILL
+        // skips the shutdown handler, and the old server would then keep the port.
+        task.arguments = ["-m", "laya_serve", "--log-file", "--watch-parent"]
         task.currentDirectoryURL = Self.serverRootURL()
 
         var environment = ProcessInfo.processInfo.environment
