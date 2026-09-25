@@ -1,7 +1,7 @@
 # The Python packages that ship inside LayaServe.app.
 # Versions are pinned so that every build is the same.
 fastapi==0.141.1
-uvicorn==0.53.0
+uvicorn==0.54.0
 laya==0.3.20
 torch==2.14.0
 transformers==5.17.0
