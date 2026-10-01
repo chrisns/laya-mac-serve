@@ -1,6 +1,6 @@
 # The Python packages that ship inside LayaServe.app.
 # Versions are pinned so that every build is the same.
-fastapi==0.142.1
+fastapi==0.142.2
 uvicorn==0.54.0
 laya==0.3.22
 torch==2.14.0
