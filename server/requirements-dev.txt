@@ -1,5 +1,5 @@
 # Continuous integration needs these only. It does not need PyTorch.
-fastapi==0.142.2
+fastapi==0.142.4
 uvicorn==0.54.0
 httpx==0.28.1
 pytest==9.1.1
