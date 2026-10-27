@@ -3,5 +3,5 @@ fastapi==0.162.0
 uvicorn==0.54.0
 httpx==0.28.1
 pytest==9.1.1
-ruff==0.17.2
+ruff==0.17.3
 mypy==2.4.0
