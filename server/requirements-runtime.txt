@@ -4,7 +4,7 @@ fastapi==0.162.0
 uvicorn==0.54.0
 laya==0.4.17
 torch==2.15.0
-transformers==5.21.1
+transformers==5.22.0
 huggingface-hub==2.3.0
 safetensors==0.8.0
 tokenizers==0.23.3
