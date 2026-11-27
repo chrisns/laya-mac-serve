@@ -1,7 +1,7 @@
 # Continuous integration needs these only. It does not need PyTorch.
 fastapi==0.165.0
 uvicorn==0.54.0
-httpx==0.28.1
+httpx==0.29.0
 pytest==9.2.0
 ruff==0.17.6
 mypy==2.4.1
